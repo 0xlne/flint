@@ -459,6 +459,9 @@ func (s *Server) setupRoutes() {
 	s.router.Get("/api/vms/{uuid}/serial-console", s.handleGetVMSerialConsole())
 	s.router.Get("/api/vms/{uuid}/serial-console/ws", s.handleVMSerialConsoleWS())
 
+	// VNC console WebSocket endpoint (token-based auth, not middleware auth)
+	s.router.Get("/api/vms/{uuid}/vnc/ws", s.handleVMVNCWebSocket())
+
 	// Protected API routes with authentication
 	s.router.Route("/api", func(r chi.Router) {
 		r.Use(s.authMiddleware)
@@ -472,6 +475,7 @@ func (s *Server) setupRoutes() {
 		r.Post("/vms/{uuid}/action", s.handleVMAction())
 		r.Get("/vms/{uuid}/guest-agent/status", s.handleGetGuestAgentStatus())
 		r.Post("/vms/{uuid}/guest-agent/install", s.handleInstallGuestAgent())
+		r.Get("/vms/{uuid}/vnc", s.handleGetVMVNCInfo())
 		r.Get("/vms/{uuid}/console-stream", s.handleGetVMConsoleStream())
 		r.Get("/vms/{uuid}/snapshots", s.handleGetVMSnapshots())
 		r.Post("/vms/{uuid}/snapshots", s.handleCreateVMSnapshot())

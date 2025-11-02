@@ -194,3 +194,10 @@ type ActivityEvent struct {
 	Status    string `json:"status"`    // "Success", "Error"
 	Message   string `json:"message"`
 }
+
+// VNCInfo holds VNC connection details for a VM
+type VNCInfo struct {
+	VMUUID string `json:"vm_uuid"`
+	Host   string `json:"host"`
+	Port   string `json:"port"`
+}

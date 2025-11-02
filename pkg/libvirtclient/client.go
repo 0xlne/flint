@@ -58,11 +58,15 @@ type ClientInterface interface {
 	InstallGuestAgent(uuidStr string) error
 	
 	// Storage operations
+	CreateStoragePool(cfg core.PoolConfig) error
 	UpdateVolume(poolName string, volumeName string, config core.VolumeConfig) error
 	DeleteVolume(poolName string, volumeName string) error
 	
-	// Network operations  
+	// Network operations
 	UpdateNetwork(name string, bridgeName string) error
+
+	// VNC operations
+	GetVMVNCInfo(uuidStr string) (core.VNCInfo, error)
 }
 
 // Client holds the libvirt connection.

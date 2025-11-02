@@ -242,6 +242,14 @@ func (d *dummyClient) UpdateNetwork(name string, bridgeName string) error {
 	return fmt.Errorf("not implemented in dummy client")
 }
 
+func (d *dummyClient) CreateStoragePool(cfg core.PoolConfig) error {
+	return fmt.Errorf("not implemented in dummy client")
+}
+
+func (d *dummyClient) GetVMVNCInfo(uuidStr string) (core.VNCInfo, error) {
+	return core.VNCInfo{}, fmt.Errorf("not implemented in dummy client")
+}
+
 var (
 	passphraseFlag string
 	setPassphrase  bool

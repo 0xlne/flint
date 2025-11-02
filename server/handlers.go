@@ -11,6 +11,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/gorilla/websocket"
 	"io"
+	"log"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -1470,4 +1472,129 @@ func (s *Server) handleDeleteImage() http.HandlerFunc {
 
 		w.WriteHeader(http.StatusNoContent)
 	})
+}
+
+// handleGetVMVNCInfo returns VNC connection details for a VM
+func (s *Server) handleGetVMVNCInfo() http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		uuid := chi.URLParam(r, "uuid")
+		if uuid == "" {
+			http.Error(w, `{"error": "VM UUID is required"}`, http.StatusBadRequest)
+			return
+		}
+
+		vncInfo, err := s.client.GetVMVNCInfo(uuid)
+		if err != nil {
+			http.Error(w, fmt.Sprintf(`{"error": "Failed to get VNC info: %s"}`, err.Error()), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(vncInfo)
+	})
+}
+
+// handleVMVNCWebSocket proxies VNC protocol over WebSocket
+func (s *Server) handleVMVNCWebSocket() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		uuid := chi.URLParam(r, "uuid")
+
+		// Authenticate using token from query parameters
+		token := r.URL.Query().Get("token")
+		if token == "" {
+			http.Error(w, "Authentication token required", http.StatusUnauthorized)
+			return
+		}
+
+		// Validate the token against the server's API key
+		if token != s.apiKey {
+			http.Error(w, "Invalid authentication token", http.StatusUnauthorized)
+			return
+		}
+
+		// Get VNC connection details
+		vncInfo, err := s.client.GetVMVNCInfo(uuid)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Failed to get VNC info: %s", err.Error()), http.StatusInternalServerError)
+			return
+		}
+
+		// Upgrade HTTP connection to WebSocket
+		upgrader := websocket.Upgrader{
+			CheckOrigin: func(r *http.Request) bool {
+				return true // Allow all origins for VNC (authenticated via token)
+			},
+		}
+
+		wsConn, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			log.Printf("Failed to upgrade to WebSocket: %v", err)
+			return
+		}
+		defer wsConn.Close()
+
+		// Connect to VNC server
+		vncAddr := fmt.Sprintf("%s:%s", vncInfo.Host, vncInfo.Port)
+		vncConn, err := net.Dial("tcp", vncAddr)
+		if err != nil {
+			log.Printf("Failed to connect to VNC server at %s: %v", vncAddr, err)
+			wsConn.WriteMessage(websocket.CloseMessage,
+				websocket.FormatCloseMessage(websocket.CloseInternalServerErr, "Failed to connect to VNC server"))
+			return
+		}
+		defer vncConn.Close()
+
+		log.Printf("VNC WebSocket proxy established for VM %s (VNC at %s)", uuid, vncAddr)
+
+		// Bidirectional proxy between WebSocket and VNC
+		errChan := make(chan error, 2)
+
+		// VNC -> WebSocket (read from VNC, write to WebSocket)
+		go func() {
+			buffer := make([]byte, 8192)
+			for {
+				n, err := vncConn.Read(buffer)
+				if err != nil {
+					if err != io.EOF {
+						log.Printf("VNC read error: %v", err)
+					}
+					errChan <- err
+					return
+				}
+
+				if err := wsConn.WriteMessage(websocket.BinaryMessage, buffer[:n]); err != nil {
+					log.Printf("WebSocket write error: %v", err)
+					errChan <- err
+					return
+				}
+			}
+		}()
+
+		// WebSocket -> VNC (read from WebSocket, write to VNC)
+		go func() {
+			for {
+				msgType, data, err := wsConn.ReadMessage()
+				if err != nil {
+					if !websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
+						log.Printf("WebSocket read error: %v", err)
+					}
+					errChan <- err
+					return
+				}
+
+				// Only forward binary messages (VNC protocol is binary)
+				if msgType == websocket.BinaryMessage {
+					if _, err := vncConn.Write(data); err != nil {
+						log.Printf("VNC write error: %v", err)
+						errChan <- err
+						return
+					}
+				}
+			}
+		}()
+
+		// Wait for either direction to error/close
+		<-errChan
+		log.Printf("VNC WebSocket proxy closed for VM %s", uuid)
+	}
 }
