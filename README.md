@@ -32,9 +32,58 @@ Flint is a modern, self-contained KVM management tool built for developers, sysa
 
 ---
 
-### 🚀 One-Liner Install
+### 📋 Prerequisites
 
-**Prerequisites:** A Linux host with `libvirt` and `qemu-kvm` installed.
+**System Requirements:**
+- Linux host (Debian, Ubuntu, Fedora, RHEL, Arch, etc.)
+- libvirt >= 6.10.0 (check with `libvirtd --version`)
+- QEMU/KVM virtualization support
+
+**Required Packages:**
+
+<details>
+<summary>Debian/Ubuntu</summary>
+
+```bash
+sudo apt update
+sudo apt install -y qemu-kvm libvirt-daemon-system libvirt-daemon libvirt-clients bridge-utils
+sudo systemctl enable --now libvirtd
+```
+</details>
+
+<details>
+<summary>RHEL/Fedora/CentOS</summary>
+
+```bash
+sudo dnf install -y qemu-kvm libvirt libvirt-client virt-install
+sudo systemctl enable --now libvirtd
+```
+</details>
+
+<details>
+<summary>Arch Linux</summary>
+
+```bash
+sudo pacman -S qemu-full libvirt virt-install virt-manager
+sudo systemctl enable --now libvirtd
+```
+</details>
+
+**Note:** If you encounter `libvirt-lxc.so.0: cannot open shared object file`, install the LXC library:
+```bash
+# Debian/Ubuntu
+sudo apt install -y libvirt-daemon-driver-lxc
+
+# RHEL/Fedora
+sudo dnf install -y libvirt-daemon-lxc
+
+# Arch
+sudo pacman -S libvirt-lxc
+```
+
+---
+
+### 🚀 One-Liner Install
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/volantvm/flint/main/install.sh | bash
@@ -137,7 +186,7 @@ curl -H "Authorization: Bearer YOUR_API_KEY" http://localhost:5550/api/vms
 
 Complete CLI commands, API reference, and advanced usage:
 
-➡️ **[DOCS.md](DOCS.md)** - Complete CLI & API Documentation
+➡️ **[docs.md](docs.md)** - Complete CLI & API Documentation
 
 ---
 
