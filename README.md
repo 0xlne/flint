@@ -83,43 +83,48 @@ sudo pacman -S libvirt-lxc
 
 **Platform Compatibility:**
 
-Flint is built with CGO (libvirt-go bindings) and requires glibc. **Alpine Linux and musl-based systems are not directly supported.**
+Flint is built with CGO (libvirt-go bindings). We provide binaries for both **glibc** and **musl** (Alpine Linux):
+
+- **glibc binaries**: `flint-linux-amd64`, `flint-linux-arm64` (for Debian, Ubuntu, Fedora, RHEL, Arch, etc.)
+- **musl binaries**: `flint-linux-amd64-musl`, `flint-linux-arm64-musl` (for Alpine Linux)
 
 <details>
 <summary>Running Flint on Alpine Linux</summary>
 
-Since Flint requires glibc and Alpine uses musl, you have two options:
+**Native musl support** is now available! Download the musl-specific binary for your architecture:
 
-**Option 1: Use gcompat (glibc compatibility layer)**
 ```bash
-# Install gcompat on Alpine
+# For Alpine Linux (amd64)
+wget https://github.com/volantvm/flint/releases/latest/download/flint-linux-amd64-musl.zip
+unzip flint-linux-amd64-musl.zip
+chmod +x flint
+./flint serve
+
+# For Alpine Linux (arm64)
+wget https://github.com/volantvm/flint/releases/latest/download/flint-linux-arm64-musl.zip
+unzip flint-linux-arm64-musl.zip
+chmod +x flint
+./flint serve
+```
+
+**Prerequisites for Alpine:**
+```bash
+# Install required Alpine packages
+apk add libvirt-daemon libvirt-qemu qemu-system-x86_64
+rc-update add libvirtd
+rc-service libvirtd start
+```
+
+**Alternative: Use gcompat compatibility layer**
+
+If you prefer to use the standard glibc binary on Alpine:
+```bash
 apk add gcompat libstdc++
-
-# Download and run Flint
-curl -LO https://github.com/volantvm/flint/releases/latest/download/flint-linux-amd64
-chmod +x flint-linux-amd64
-./flint-linux-amd64 serve
+wget https://github.com/volantvm/flint/releases/latest/download/flint-linux-amd64.zip
+unzip flint-linux-amd64.zip
+chmod +x flint
+./flint serve
 ```
-
-**Option 2: Run in a glibc-based container (recommended)**
-```bash
-# Use Debian/Ubuntu container on Alpine host
-docker run -d \
-  --name flint \
-  --privileged \
-  -v /var/run/libvirt:/var/run/libvirt \
-  -p 5550:5550 \
-  debian:bookworm-slim \
-  bash -c "apt update && apt install -y libvirt-clients && ./flint serve"
-```
-
-**Why no native musl support?**
-- Flint uses CGO extensively through libvirt-go bindings
-- Static linking with libvirt is extremely complex due to numerous dependencies
-- Cross-compiling CGO code for musl requires a complete musl toolchain
-- The maintenance burden for musl support would be significant
-
-For production use on Alpine, we recommend running Flint in a glibc-based container or using a glibc-based Linux distribution.
 </details>
 
 ---

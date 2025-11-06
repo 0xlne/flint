@@ -8,7 +8,7 @@ on:
 jobs:
   # --- JOB 1: Build binaries for all target platforms ---
   build:
-    name: Build for ${{ matrix.os }}/${{ matrix.arch }}
+    name: Build for ${{ matrix.os }}/${{ matrix.arch }}${{ matrix.libc && format(' ({0})', matrix.libc) || '' }}
     strategy:
       matrix:
         include:
@@ -21,6 +21,14 @@ jobs:
           - os: linux
             arch: amd64
             runner: AMD64
+          - os: linux
+            arch: amd64
+            libc: musl
+            runner: AMD64
+          - os: linux
+            arch: arm64
+            libc: musl
+            runner: ARM64
 
     runs-on: ${{ matrix.runner }}
 
@@ -58,7 +66,21 @@ jobs:
           CGO_ENABLED: 1
           PKG_CONFIG_PATH: ${{ matrix.os == 'darwin' && '/opt/homebrew/lib/pkgconfig' || '' }}
         run: |
-          if [[ "${{ matrix.os }}" == "linux" && "${{ matrix.arch }}" == "arm64" ]]; then
+          if [[ "${{ matrix.libc }}" == "musl" ]]; then
+            echo "--- Building ${{ matrix.os }}/${{ matrix.arch }} with musl via Alpine Docker ---"
+            docker run --rm --platform linux/${{ matrix.arch }} \
+              -v "$PWD":/src \
+              -w /src \
+              alpine:3.19 \
+              sh -c ' \
+                set -e && \
+                echo "--- Installing Alpine build dependencies ---" && \
+                apk add --no-cache go libvirt-dev pkgconfig gcc musl-dev && \
+                echo "--- Compiling Go binary with musl ---" && \
+                go mod download && \
+                CGO_ENABLED=1 go build -ldflags="-s -w" -o flint . \
+              '
+          elif [[ "${{ matrix.os }}" == "linux" && "${{ matrix.arch }}" == "arm64" ]]; then
             echo "--- Building linux/arm64 via Docker ---"
             docker run --rm --platform linux/arm64 \
               -v "$PWD":/src \
@@ -84,13 +106,17 @@ jobs:
 
       - name: Package Binary
         run: |
-          zip -j flint-${{ matrix.os }}-${{ matrix.arch }}.zip flint
+          if [[ "${{ matrix.libc }}" == "musl" ]]; then
+            zip -j flint-${{ matrix.os }}-${{ matrix.arch }}-musl.zip flint
+          else
+            zip -j flint-${{ matrix.os }}-${{ matrix.arch }}.zip flint
+          fi
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: flint-binary-${{ matrix.os }}-${{ matrix.arch }}
-          path: flint-${{ matrix.os }}-${{ matrix.arch }}.zip
+          name: flint-binary-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.libc && format('-{0}', matrix.libc) || '' }}
+          path: flint-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.libc && format('-{0}', matrix.libc) || '' }}.zip
 
   # --- JOB 2: Create the GitHub Release after all builds are done ---
   release:

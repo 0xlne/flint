@@ -1,6 +1,6 @@
 # Flint Makefile
 
-.PHONY: all install build web-build deps check-go check-bun test test-verbose test-cover lint fmt vet clean dev-setup run dev help
+.PHONY: all install build web-build deps check-go check-bun test test-verbose test-cover lint fmt vet clean dev-setup run dev build-musl-amd64 build-musl-arm64 help
 
 # Default target
 all: build
@@ -155,6 +155,42 @@ run:
 # Alias for backwards compatibility
 install-deps: deps
 
+# Build musl binary for Alpine Linux (amd64)
+build-musl-amd64: web-build
+	@echo "🐧 Building musl binary for Alpine Linux (amd64)..."
+	@echo "🐳 Using Alpine Docker container for musl compilation..."
+	docker run --rm --platform linux/amd64 \
+		-v "$(PWD)":/src \
+		-w /src \
+		alpine:3.19 \
+		sh -c ' \
+			set -e && \
+			echo "📦 Installing build dependencies..." && \
+			apk add --no-cache go libvirt-dev pkgconfig gcc musl-dev && \
+			echo "🔨 Building flint with musl..." && \
+			CGO_ENABLED=1 go build -ldflags="-s -w" -o flint-musl-amd64 . && \
+			echo "✅ musl binary built: flint-musl-amd64" \
+		'
+	@echo "✅ Alpine Linux (amd64) musl binary built successfully"
+
+# Build musl binary for Alpine Linux (arm64)
+build-musl-arm64: web-build
+	@echo "🐧 Building musl binary for Alpine Linux (arm64)..."
+	@echo "🐳 Using Alpine Docker container for musl compilation..."
+	docker run --rm --platform linux/arm64 \
+		-v "$(PWD)":/src \
+		-w /src \
+		alpine:3.19 \
+		sh -c ' \
+			set -e && \
+			echo "📦 Installing build dependencies..." && \
+			apk add --no-cache go libvirt-dev pkgconfig gcc musl-dev && \
+			echo "🔨 Building flint with musl..." && \
+			CGO_ENABLED=1 go build -ldflags="-s -w" -o flint-musl-arm64 . && \
+			echo "✅ musl binary built: flint-musl-arm64" \
+		'
+	@echo "✅ Alpine Linux (arm64) musl binary built successfully"
+
 # Help target
 help:
 	@echo "🌀 Flint Build System"
@@ -162,24 +198,26 @@ help:
 	@echo "🚀 One-command install: make install"
 	@echo ""
 	@echo "Available targets:"
-	@echo "  install      - Install Go (if needed), bun (if needed), dependencies, build everything, and install to /usr/local/bin"
-	@echo "  build        - Build web assets and Go binary"
-	@echo "  web-build    - Build only web assets"
-	@echo "  dev          - Quick build (Go binary only, assumes web assets exist)"
-	@echo "  deps         - Install Go, bun, and all dependencies"
-	@echo "  check-go     - Check for Go installation, install if missing"
-	@echo "  check-bun    - Check for bun installation, install if missing"
-	@echo "  clean        - Clean build artifacts"
-	@echo "  test         - Run tests"
-	@echo "  test-verbose - Run tests with verbose output"
-	@echo "  test-cover   - Run tests with coverage"
-	@echo "  lint         - Run linter"
-	@echo "  fmt          - Format code"
-	@echo "  vet          - Run go vet"
-	@echo "  check        - Run fmt, vet, lint, and test"
-	@echo "  dev-setup    - Install development tools"
-	@echo "  run          - Run flint serve"
-	@echo "  help         - Show this help"
+	@echo "  install          - Install Go (if needed), bun (if needed), dependencies, build everything, and install to /usr/local/bin"
+	@echo "  build            - Build web assets and Go binary"
+	@echo "  web-build        - Build only web assets"
+	@echo "  dev              - Quick build (Go binary only, assumes web assets exist)"
+	@echo "  build-musl-amd64 - Build musl binary for Alpine Linux (amd64) via Docker"
+	@echo "  build-musl-arm64 - Build musl binary for Alpine Linux (arm64) via Docker"
+	@echo "  deps             - Install Go, bun, and all dependencies"
+	@echo "  check-go         - Check for Go installation, install if missing"
+	@echo "  check-bun        - Check for bun installation, install if missing"
+	@echo "  clean            - Clean build artifacts"
+	@echo "  test             - Run tests"
+	@echo "  test-verbose     - Run tests with verbose output"
+	@echo "  test-cover       - Run tests with coverage"
+	@echo "  lint             - Run linter"
+	@echo "  fmt              - Format code"
+	@echo "  vet              - Run go vet"
+	@echo "  check            - Run fmt, vet, lint, and test"
+	@echo "  dev-setup        - Install development tools"
+	@echo "  run              - Run flint serve"
+	@echo "  help             - Show this help"
 	@echo ""
 	@echo "📋 Automatic installations:"
 	@echo "  • Go 1.25.1 (Linux amd64/arm64, macOS amd64/arm64)"
